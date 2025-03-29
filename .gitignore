@@ -1,0 +1,51 @@
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environments
+venv/
+env/
+*.venv
+
+# Ignore Django secret key and environment variables
+.env
+*.env
+secrets.json
+
+# Ignore database files
+*.sqlite3
+*.db
+
+# Ignore compiled code
+*.so
+
+# Ignore logs
+*.log
+logs/
+debug.log
+
+# Ignore media and static files
+/media/
+staticfiles/
+static/
+
+# Ignore VS Code settings
+.vscode/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore migrations (optional, if you regenerate them)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Ignore Docker files (if using Docker)
+docker-compose.override.yml
+.dockerignore
+
+# Ignore Node.js dependencies (if using frontend)
+node_modules/
+package-lock.json
+yarn.lock
