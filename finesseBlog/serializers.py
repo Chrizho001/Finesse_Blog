@@ -7,18 +7,35 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'bio', 'stack', 'profile_picture', 'facebook', 'youtube', 'twitter', 'tiktok']
 
-    # def create(self, validated_data):
-    #     email = validated_data['email']
-    #     username = validated_data['username']
-    #     first_name = validated_data['first_name']
-    #     last_name = validated_data['last_name']
-    #     password = validated_data['password']
+    
 
-    #     user = get_user_model()
-    #     new_user = user.objects.create(email=email, username=username, first_name=first_name, last_name=last_name )
-    #     new_user.set_password(password)
-    #     new_user.save()
-    #     return new_user
+class UserRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['email', 'first_name', 'last_name', 'username', 'password', 'password2', ]
+
+    def validate(self, attrs):
+        password = attrs.get('password', '')
+        password2 = attrs.get('password2', '')
+        if password != password2:
+            raise serializers.ValidationError('passwords do not match')
+        return attrs
+    
+    def create(self, validated_data):
+        validated_data.pop('password2') # just simply pop out password2 and then spread the validated data but i'll go with option 2 which is to manually insert the data
+        user = User.objects.create_user(**validated_data) # recieving the spreaded data
+        # user = User.objects.create_user(
+        #     email=validated_data['email'],
+        #     username=validated_data.get('username'),
+        #     first_name = validated_data.get('first_name'),
+        #     last_name = validated_data.get('last_name'),
+        #     password = validated_data.get('password'),
+        # )
+
+        return user
 
 
 
