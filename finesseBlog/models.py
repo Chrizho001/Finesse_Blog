@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.conf import settings
 from .manager import CustomUserManager
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 # Create your models here.
 
@@ -16,12 +18,20 @@ class User(AbstractUser):
     instagram = models.URLField(max_length=255, blank=True, null=True)
     twitter = models.URLField(max_length=255, blank=True, null=True)
     tiktok = models.URLField(max_length=255, blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
 
     USERNAME_FIELD='email'
 
     REQUIRED_FIELDS=['first_name', 'last_name']
 
     objects = CustomUserManager()  # Use the custom manager
+
+    def tokens(self):
+        refresh = RefreshToken.for_user(self)
+        return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+        }
 
     def __str__(self):
         return self.username 

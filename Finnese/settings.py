@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import environ
+from datetime import timedelta
 
 env = environ.Env(
     # set casting, default value
@@ -157,14 +158,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'finesseBlog.User'
 
-# REST_FRAMEWORK = {
+REST_FRAMEWORK = {
 
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': (
     
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#     )
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
 
-# }
+}
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 
 CORS_ALLOW_CREDENTIALS = True
 

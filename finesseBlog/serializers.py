@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Post, PostImage, User, Comment
 from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,8 +20,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ['email', 'first_name', 'last_name', 'username', 'password', 'password2', ]
 
     def validate(self, attrs):
-        password = attrs.get('password', '')
-        password2 = attrs.get('password2', '')
+        # password = attrs.get('password', '')
+        # password2 = attrs.get('password2', '')
+        password = attrs['password']
+        password2 = attrs['password2']
         if password != password2:
             raise serializers.ValidationError('passwords do not match')
         return attrs
@@ -86,3 +90,57 @@ class PostSerializer(serializers.ModelSerializer):
         if not value.islower():
             raise serializers.ValidationError("Slug must be all lowercase.")
         return value
+
+class LoginSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    first_name = serializers.CharField(max_length=255, read_only=True)
+    last_name = serializers.CharField(max_length=255, read_only=True)
+    access_token = serializers.CharField(max_length=255, read_only=True)
+    refresh_token = serializers.CharField(max_length=255, read_only=True)
+    
+
+
+    class Meta:
+        model = User
+        fields = ['email', 'password', 'first_name', 'last_name', 'access_token', 'refresh_token']
+
+   
+    def validate(self, attrs):
+        email = attrs['email']
+        password = attrs['password']
+        request = self.context.get('request')
+        user = authenticate(request, email=email, password=password)
+        if not user:
+            raise AuthenticationFailed('invalid credentials try again')
+        
+        if not user.is_verified:
+            raise AuthenticationFailed('Email is not verified')
+        
+        user_token=user.tokens()
+        if not user_token or 'access' not in user_token or 'refresh' not in user_token:
+            raise serializers.ValidationError('Unable to generate tokens')
+
+        return {
+            'email':user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'access_token' : str(user_token.get('access')),
+            'refresh_token' : str(user_token.get('refresh'))
+
+        }
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
