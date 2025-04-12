@@ -1,27 +1,38 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework import generics
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Post, OneTimePassword
-from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer
+from .models import Post, OneTimePassword, Comment, User
+from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer, CommentSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
 from django.db.models import Count
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .utils import send_code_to_user
 
-# Create your views here.
 
-@api_view(['GET'])
-def post_list(request):
-    posts = Post.objects.annotate(likes_count=Count('likes'))
-    serializer = PostSerializer(posts, many=True)
-    return Response(serializer.data)
+class PostListApiView(generics.ListAPIView):
+    queryset = Post.objects.select_related('author').prefetch_related('post_comments','post_comments__author', 'images').annotate(likes_count=Count('likes'))
+    serializer_class = PostSerializer
 
-@api_view(['GET'])
-def post_detail(request, post):
-    posts = get_object_or_404(Post, slug=post)
-    serializer = PostSerializer(posts)
-    return Response(serializer.data)
+
+class UserPostListApiView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Post.objects.select_related('author').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
+    serializer_class = PostSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.filter(author=self.request.user)
+    
+
+class PostDetailApiView(generics.RetrieveAPIView):
+    queryset = Post.objects.select_related('author').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
+    serializer_class = PostSerializer
+    lookup_field = 'slug'
 
 class RegisterUserView(GenericAPIView):
     serializer_class=UserRegisterSerializer
@@ -79,6 +90,11 @@ class LogInUserView(GenericAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class CommentApiView(generics.CreateAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+
+
 class TestAuthenticationView(GenericAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -89,3 +105,41 @@ class TestAuthenticationView(GenericAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+class PasswordResetRequestView(GenericAPIView):
+    serializer_class = PasswordResetRequestSerializer
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data, context = {'request' : request})
+        serializer.is_valid(raise_exception=True)
+        return Response({
+            'message': "A link has been sent to your email to reset your password."
+        }, status=status.HTTP_200_OK)
+    
+class PasswordResetConfirm(GenericAPIView):
+
+    def get(self, request, uidb64, token):
+        try:
+            user_id = smart_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id = user_id)
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return Response({
+                    'message' : "token is invalid or has expired"
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({
+                'success' : True,
+                'message' : "credentials is valid",
+                'uidb64' : uidb64,
+                'token':token
+            }, status=status.HTTP_200_OK)
+
+        except DjangoUnicodeDecodeError:
+            return Response({
+                    'message' : "token is invalid or has expired"
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        
+
+class SetNewPassword(GenericAPIView):
+    serializer_class=SetNewPasswordSerializer
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({'message': 'password reset successful'}, status=status.HTTP_200_OK)
