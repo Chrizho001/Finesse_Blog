@@ -6,7 +6,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Post, OneTimePassword, Comment, User
-from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer, CommentSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
+from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer, CommentSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer, LogoutUserSerializer
 from django.db.models import Count
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
@@ -143,3 +143,28 @@ class SetNewPassword(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response({'message': 'password reset successful'}, status=status.HTTP_200_OK)
+    
+
+class LogoutUserView(GenericAPIView):
+    serializer_class = LogoutUserSerializer
+    permission_classes = [IsAuthenticated]
+
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
+
+
+
+
+
+
+
+
+

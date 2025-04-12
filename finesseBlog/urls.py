@@ -13,6 +13,7 @@ urlpatterns = [
     path('posts/<slug:slug>', views.PostDetailApiView.as_view(), name='post_detail'),
     path('verify-email/', views.VerifyUserEmail.as_view(), name='verify_email'),
     path('login/', views.LogInUserView.as_view(), name='login'),
+    path('logout/', views.LogoutUserView.as_view(), name='logout'),
     path('profile/', views.TestAuthenticationView.as_view(), name='profile'),
     path('comments/', views.CommentApiView.as_view(), name='comment'),
     path('password-reset/', views.PasswordResetRequestView.as_view(), name='password-reset'),

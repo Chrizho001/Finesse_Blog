@@ -61,12 +61,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Local Apps
     'finesseBlog',
-    'accounts',
     'social_accounts',
     #Third party apps
     'rest_framework',
     'corsheaders',
-    'silk'
+    'silk',
+    'rest_framework_simplejwt.token_blacklist',
 
 ]
 
