@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Post, PostImage, User, Comment
+from .models import Post, PostImage, User, Comment, Category
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
@@ -39,14 +39,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2') # just simply pop out password2 and then spread the validated data but i'll go with option 2 which is to manually insert the data
         user = User.objects.create_user(**validated_data) # recieving the spreaded data
-        # user = User.objects.create_user(
-        #     email=validated_data['email'],
-        #     username=validated_data.get('username'),
-        #     first_name = validated_data.get('first_name'),
-        #     last_name = validated_data.get('last_name'),
-        #     password = validated_data.get('password'),
-        # )
-
         return user
 
 
@@ -56,7 +48,7 @@ class PostImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostImage
         fields = ['id', 'image', 'uploaded_at']
-        read_only_fields = ['uploaded_at']  # User can't set this
+        read_only_fields = ['uploaded_at']  
 
     # Return the full image URL
     def to_representation(self, instance):
@@ -71,18 +63,41 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['content', 'created_at', 'author']
 
+class CreateCommentSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)  # Display author details, not editable
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())  # Input post ID
+    content = serializers.CharField(max_length=1000, required=True)  # Comment text
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'post', 'author', 'content', 'created_at']
+        read_only_fields = ['id', 'author', 'created_at']
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Comment content cannot be empty.")
+        return value
+
+    def create(self, validated_data):
+        # Automatically set the author to the current user
+        validated_data['author'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class PostSerializer(serializers.ModelSerializer):
     post_comments = CommentSerializer(many=True, read_only=True)
     images = PostImageSerializer(many=True, read_only=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), allow_null=True)
     # author = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     author = UserSerializer(read_only=True)
     likes_count = serializers.IntegerField(read_only=True) # Use annotated field in the views
+    slug = serializers.SlugField(required=False, allow_blank=True)  # Optional for PATCH
+    publish = serializers.DateTimeField(required=False)  # Optional for PATCH
+
     class Meta:
         model = Post
-        fields = ['id', 'title', 'slug', 'content', 'header_image', 'images', 'author', 'status', 'publish', 'likes_count', 'post_comments']
-        read_only_fields = ['id']
+        fields = ['id', 'title', 'slug', 'content', 'header_image', 'images', 'author', 'category', 'status', 'publish', 'likes_count', 'post_comments', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'likes_count', 'post_comments', 'images']
 
     def validate_title(self, value):
         if value.strip() == "":
@@ -98,7 +113,10 @@ class PostSerializer(serializers.ModelSerializer):
         if not value.islower():
             raise serializers.ValidationError("Slug must be all lowercase.")
         return value
-
+    def create(self, validated_data):
+        # Set author to the logged-in user
+        validated_data['author'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -109,6 +127,7 @@ class LoginSerializer(serializers.ModelSerializer):
     access_token = serializers.CharField(max_length=255, read_only=True)
     refresh_token = serializers.CharField(max_length=255, read_only=True)
     
+    # Only the email and password are actualy used for login
 
 
     class Meta:

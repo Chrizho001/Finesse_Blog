@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'social_accounts',
     #Third party apps
     'rest_framework',
+    'drf_spectacular',
     'corsheaders',
     'silk',
     'rest_framework_simplejwt.token_blacklist',
@@ -165,13 +166,14 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
     
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
 }
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
@@ -190,7 +192,12 @@ CORS_ALLOW_METHODS = [
 
 CORS_ALLOW_ALL_ORIGINS = True  # Not recommended in production
 
-
-
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'ByteBlog',
+    'DESCRIPTION': 'An API for a blog web app',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}
 
 

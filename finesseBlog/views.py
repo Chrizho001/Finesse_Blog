@@ -3,10 +3,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import generics
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import status
 from .models import Post, OneTimePassword, Comment, User
-from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer, CommentSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer, LogoutUserSerializer
+from .serializers import PostSerializer, UserRegisterSerializer, LoginSerializer, CommentSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer, LogoutUserSerializer, CreateCommentSerializer
 from django.db.models import Count
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
@@ -14,9 +15,47 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .utils import send_code_to_user
 
 
-class PostListApiView(generics.ListAPIView):
-    queryset = Post.objects.select_related('author').prefetch_related('post_comments','post_comments__author', 'images').annotate(likes_count=Count('likes'))
+
+class PostDetailApiView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Post.objects.select_related('author', 'category').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
     serializer_class = PostSerializer
+    lookup_field = 'slug'
+
+
+    def get_permissions(self):
+        # Ensure only authenticated users can perform write actions to a post
+        self.permission_classes = [AllowAny]
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            self.permission_classes = [IsAuthenticated]
+        return super().get_permissions()
+
+
+    def get_queryset(self):
+        # Ensure only the author can update/delete
+        qs = super().get_queryset()
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            qs = qs.filter(author=self.request.user)
+        return qs
+
+    def perform_update(self, serializer):
+        # Ensure author isn't changed
+        serializer.save(author=self.request.user)
+
+    def perform_destroy(self, instance):
+        # Double-check author before delete
+        if instance.author != self.request.user:
+            raise PermissionDenied("You can only delete your own posts.")
+        instance.delete()
+
+
+
+class PostListCreateApiView(generics.ListCreateAPIView):
+    queryset = Post.objects.select_related('author', 'category').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    
 
 
 class UserPostListApiView(generics.ListAPIView):
@@ -29,10 +68,10 @@ class UserPostListApiView(generics.ListAPIView):
         return qs.filter(author=self.request.user)
     
 
-class PostDetailApiView(generics.RetrieveAPIView):
-    queryset = Post.objects.select_related('author').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
-    serializer_class = PostSerializer
-    lookup_field = 'slug'
+# class PostDetailApiView(generics.RetrieveAPIView):
+#     queryset = Post.objects.select_related('author').prefetch_related('post_comments', 'post_comments__author', 'images').annotate(likes_count=Count('likes'))
+#     serializer_class = PostSerializer
+#     lookup_field = 'slug'
 
 class RegisterUserView(GenericAPIView):
     serializer_class=UserRegisterSerializer
@@ -90,19 +129,7 @@ class LogInUserView(GenericAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class CommentApiView(generics.CreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
 
-
-class TestAuthenticationView(GenericAPIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        data = {
-            'msg' : 'it works'
-        }
-        return Response(data, status=status.HTTP_200_OK)
 
 
 class PasswordResetRequestView(GenericAPIView):
@@ -158,9 +185,14 @@ class LogoutUserView(GenericAPIView):
 
 
 
-
-
-
+class CommentCreateApiView(GenericAPIView):
+    serializer_class = CreateCommentSerializer
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data, context = {'request' : request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=201)
 
 
 
